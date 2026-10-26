@@ -10,6 +10,7 @@ import {
 } from '@publish-calendar/shared';
 
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
+export type StorageDriver = 'local' | 's3';
 
 export interface ApiConfig {
   apiHost: string;
@@ -29,6 +30,9 @@ export interface ApiConfig {
   databaseUrl: string;
   databasePoolMax: number;
   databaseConnectTimeoutMs: number;
+
+  storageDriver: StorageDriver;
+  localStorageDir: string;
 
   s3Endpoint: string;
   s3Region: string;
@@ -183,32 +187,52 @@ export function loadApiConfig(
     { min: 100 }
   );
 
-  const s3Endpoint = requireUrlEnv(env, 'S3_ENDPOINT', ['http:', 'https:']);
-  const s3Region = requireNonEmptyEnvString(env, 'S3_REGION');
-  const s3Bucket = requireNonEmptyEnvString(env, 'S3_BUCKET');
-  if (!BUCKET_REGEX.test(s3Bucket)) {
+  const storageDriverRaw = requireNonEmptyEnvString(env, 'STORAGE_DRIVER');
+  if (storageDriverRaw !== 'local' && storageDriverRaw !== 's3') {
     throw new ConfigurationError(
-      'S3_BUCKET',
-      `must be a valid S3 bucket name (got "${s3Bucket}").`
+      'STORAGE_DRIVER',
+      `must be one of "local" or "s3" (got "${storageDriverRaw}").`
     );
   }
+  const storageDriver: StorageDriver = storageDriverRaw;
 
-  const s3AccessKeyId = requireNonEmptyEnvString(env, 'S3_ACCESS_KEY_ID');
-  const s3SecretAccessKey = requireNonEmptyEnvString(
-    env,
-    'S3_SECRET_ACCESS_KEY'
-  );
-  const s3ForcePathStyle = requireBooleanEnv(env, 'S3_FORCE_PATH_STYLE');
-  const s3PresignedUrlTtlSeconds = requirePositiveIntEnv(
-    env,
-    'S3_PRESIGNED_URL_TTL_SECONDS',
-    { min: 60, max: 86400 }
-  );
-  const s3OperationTimeoutMs = requirePositiveIntEnv(
-    env,
-    'S3_OPERATION_TIMEOUT_MS',
-    { min: 500 }
-  );
+  let localStorageDir = '';
+  let s3Endpoint = '';
+  let s3Region = '';
+  let s3Bucket = '';
+  let s3AccessKeyId = '';
+  let s3SecretAccessKey = '';
+  let s3ForcePathStyle = false;
+  let s3PresignedUrlTtlSeconds = 0;
+  let s3OperationTimeoutMs = 0;
+
+  if (storageDriver === 'local') {
+    localStorageDir = requireNonEmptyEnvString(env, 'LOCAL_STORAGE_DIR');
+  } else {
+    s3Endpoint = requireUrlEnv(env, 'S3_ENDPOINT', ['http:', 'https:']);
+    s3Region = requireNonEmptyEnvString(env, 'S3_REGION');
+    s3Bucket = requireNonEmptyEnvString(env, 'S3_BUCKET');
+    if (!BUCKET_REGEX.test(s3Bucket)) {
+      throw new ConfigurationError(
+        'S3_BUCKET',
+        `must be a valid S3 bucket name (got "${s3Bucket}").`
+      );
+    }
+
+    s3AccessKeyId = requireNonEmptyEnvString(env, 'S3_ACCESS_KEY_ID');
+    s3SecretAccessKey = requireNonEmptyEnvString(env, 'S3_SECRET_ACCESS_KEY');
+    s3ForcePathStyle = requireBooleanEnv(env, 'S3_FORCE_PATH_STYLE');
+    s3PresignedUrlTtlSeconds = requirePositiveIntEnv(
+      env,
+      'S3_PRESIGNED_URL_TTL_SECONDS',
+      { min: 60, max: 86400 }
+    );
+    s3OperationTimeoutMs = requirePositiveIntEnv(
+      env,
+      'S3_OPERATION_TIMEOUT_MS',
+      { min: 500 }
+    );
+  }
 
   const maxUploadFileBytes = requirePositiveIntEnv(
     env,
@@ -304,6 +328,8 @@ export function loadApiConfig(
     databaseUrl,
     databasePoolMax,
     databaseConnectTimeoutMs,
+    storageDriver,
+    localStorageDir,
     s3Endpoint,
     s3Region,
     s3Bucket,

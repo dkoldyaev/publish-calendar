@@ -28,6 +28,8 @@ function createValidTestEnv(
     DATABASE_URL: 'pglite://memory',
     DATABASE_POOL_MAX: '5',
     DATABASE_CONNECT_TIMEOUT_MS: '5000',
+    STORAGE_DRIVER: 's3',
+    LOCAL_STORAGE_DIR: '/tmp/publish-calendar-test-storage',
     S3_ENDPOINT: 'http://127.0.0.1:9000',
     S3_REGION: 'us-east-1',
     S3_BUCKET: 'publish-calendar-test',
@@ -67,7 +69,38 @@ function makeValidJpeg(seed = 1): Uint8Array {
 }
 
 describe('Scenario 10: Backend Configuration Validation (Fail-Fast Policy)', () => {
-  it('Fails with exact ConfigurationError when S3_BUCKET or other S3 variables are missing', async () => {
+  it('Fails with exact ConfigurationError when STORAGE_DRIVER, LOCAL_STORAGE_DIR, or S3 variables are missing', async () => {
+    expect(() =>
+      loadApiConfig(createValidTestEnv({ STORAGE_DRIVER: undefined }))
+    ).toThrow('ConfigurationError: STORAGE_DRIVER is required.');
+
+    expect(() =>
+      loadApiConfig(createValidTestEnv({ STORAGE_DRIVER: 'invalid' }))
+    ).toThrow(/ConfigurationError: STORAGE_DRIVER/);
+
+    expect(() =>
+      loadApiConfig(
+        createValidTestEnv({
+          STORAGE_DRIVER: 'local',
+          LOCAL_STORAGE_DIR: undefined,
+        })
+      )
+    ).toThrow('ConfigurationError: LOCAL_STORAGE_DIR is required.');
+
+    // When STORAGE_DRIVER=local, S3_* variables are not required
+    const localCfg = loadApiConfig(
+      createValidTestEnv({
+        STORAGE_DRIVER: 'local',
+        LOCAL_STORAGE_DIR: '/tmp/publish-calendar-local',
+        S3_BUCKET: undefined,
+        S3_ENDPOINT: undefined,
+        S3_ACCESS_KEY_ID: undefined,
+        S3_SECRET_ACCESS_KEY: undefined,
+      })
+    );
+    expect(localCfg.storageDriver).toBe('local');
+    expect(localCfg.localStorageDir).toBe('/tmp/publish-calendar-local');
+
     expect(() =>
       loadApiConfig(createValidTestEnv({ S3_BUCKET: undefined }))
     ).toThrow('ConfigurationError: S3_BUCKET is required.');
@@ -179,7 +212,9 @@ describe('Scenario 10: Backend Configuration Validation (Fail-Fast Policy)', () 
     expect(baseCompose).not.toMatch(/^\s{2}nginx:/m);
     expect(baseCompose).not.toMatch(/^\s+ports:/m);
     expect(baseCompose).toContain('${DATABASE_URL:?DATABASE_URL is required}');
-    expect(baseCompose).toContain('${S3_BUCKET:?S3_BUCKET is required}');
+    expect(baseCompose).toContain(
+      '${STORAGE_DRIVER:?STORAGE_DRIVER is required}'
+    );
     expect(baseCompose).toContain('healthcheck:');
 
     // Override Example Compose (for local runs) must define traefik, postgres, and ports:
@@ -216,7 +251,7 @@ describe('Scenario 10: Backend Configuration Validation (Fail-Fast Policy)', () 
         }
       }
     }
-    expect(referencedVars.size).toBeGreaterThan(30);
+    expect(referencedVars.size).toBeGreaterThan(25);
     for (const varName of referencedVars) {
       expect(envExample).toMatch(new RegExp(`^${varName}=`, 'm'));
     }
@@ -638,5 +673,54 @@ describe('Full Backend Integration: PostgreSQL + S3 HTTP Server + Sync + Notific
       [frontPhotoId]
     );
     expect(dbCheck.rows).toHaveLength(0);
+  });
+
+  it('LocalFileStorageService (STORAGE_DRIVER=local) stores, reads, checks head, and deletes photo binaries on disk', async () => {
+    const tmpDir = fs.mkdtempSync('/tmp/pubcal-local-storage-');
+    try {
+      const localConfig = loadApiConfig(
+        createValidTestEnv({
+          STORAGE_DRIVER: 'local',
+          LOCAL_STORAGE_DIR: tmpDir,
+          S3_BUCKET: undefined,
+          S3_ENDPOINT: undefined,
+          S3_ACCESS_KEY_ID: undefined,
+          S3_SECRET_ACCESS_KEY: undefined,
+        })
+      );
+      const localBuilt = await buildServer({
+        config: localConfig,
+        startWorker: false,
+      });
+
+      const key = localBuilt.s3.buildPhotoKey(
+        '00000000-0000-4000-8000-000000000001',
+        '11111111-2222-4333-8444-555555555555'
+      );
+      const jpegBytes = makeValidJpeg(42);
+      const putRes = await localBuilt.s3.putObject({
+        key,
+        body: jpegBytes,
+        contentType: 'image/jpeg',
+        sha256Hex: 'deadbeef1234',
+      });
+      expect(putRes.etag).toBe('"deadbeef1234"');
+
+      const head1 = await localBuilt.s3.headObject(key);
+      expect(head1.exists).toBe(true);
+      expect(head1.sizeBytes).toBe(jpegBytes.byteLength);
+
+      const got = await localBuilt.s3.getObject(key);
+      expect(got.contentType).toBe('image/jpeg');
+      expect(Buffer.from(got.bytes).equals(Buffer.from(jpegBytes))).toBe(true);
+
+      await localBuilt.s3.deleteObject(key);
+      const head2 = await localBuilt.s3.headObject(key);
+      expect(head2.exists).toBe(false);
+
+      await localBuilt.app.close();
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
   });
 });

@@ -17,7 +17,7 @@ import type { ApiConfig } from './config/env.js';
 import { createDatabasePool, type DatabasePool } from './db/pool.js';
 import { runMigrations } from './db/migrate.js';
 import {
-  AwsS3StorageService,
+  createStorageService,
   type S3StorageService,
 } from './storage/s3.js';
 import {
@@ -62,7 +62,7 @@ export async function buildServer(
 ): Promise<BuiltServer> {
   const { config } = deps;
   const pool = deps.pool ?? createDatabasePool(config);
-  const s3 = deps.s3 ?? new AwsS3StorageService(config);
+  const s3 = deps.s3 ?? createStorageService(config);
 
   await runMigrations(pool, config);
 
