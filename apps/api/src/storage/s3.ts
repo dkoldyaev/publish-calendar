@@ -1,6 +1,8 @@
 import {
+  CreateBucketCommand,
   DeleteObjectCommand,
   GetObjectCommand,
+  HeadBucketCommand,
   HeadObjectCommand,
   PutObjectCommand,
   S3Client,
@@ -37,6 +39,7 @@ export class AwsS3StorageService implements S3StorageService {
   public readonly bucket: string;
   private readonly client: S3Client;
   private readonly presignedTtlSeconds: number;
+  private bucketEnsured = false;
 
   constructor(config: ApiConfig) {
     this.bucket = config.s3Bucket;
@@ -98,12 +101,32 @@ export class AwsS3StorageService implements S3StorageService {
     };
   }
 
+  private async ensureBucket(): Promise<void> {
+    if (this.bucketEnsured) {
+      return;
+    }
+    try {
+      await this.client.send(new HeadBucketCommand({ Bucket: this.bucket }));
+      this.bucketEnsured = true;
+    } catch {
+      try {
+        await this.client.send(
+          new CreateBucketCommand({ Bucket: this.bucket })
+        );
+      } catch {
+        // Ignore if bucket was concurrently created
+      }
+      this.bucketEnsured = true;
+    }
+  }
+
   async putObject(params: {
     key: string;
     body: Uint8Array;
     contentType: string;
     sha256Hex: string;
   }): Promise<{ etag: string | null }> {
+    await this.ensureBucket();
     const res = await this.client.send(
       new PutObjectCommand({
         Bucket: this.bucket,
