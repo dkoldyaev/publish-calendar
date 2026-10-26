@@ -41,8 +41,6 @@ services:
       NOTIFICATION_MAX_RETRIES: ${NOTIFICATION_MAX_RETRIES:?NOTIFICATION_MAX_RETRIES is required}
       DEFAULT_TIMEZONE: ${DEFAULT_TIMEZONE:?DEFAULT_TIMEZONE is required}
       DEFAULT_REMINDER_TIME: ${DEFAULT_REMINDER_TIME:?DEFAULT_REMINDER_TIME is required}
-    depends_on:
-      - minio
     healthcheck:
       test:
         [
@@ -98,18 +96,3 @@ services:
       start_period: 5s
     networks:
       - default
-
-  minio:
-    image: minio/minio:latest
-    restart: unless-stopped
-    command: server /data
-    environment:
-      MINIO_ROOT_USER: ${S3_ACCESS_KEY_ID:?S3_ACCESS_KEY_ID is required}
-      MINIO_ROOT_PASSWORD: ${S3_SECRET_ACCESS_KEY:?S3_SECRET_ACCESS_KEY is required}
-    volumes:
-      - minio_data:/data
-    networks:
-      - default
-
-volumes:
-  minio_data:
