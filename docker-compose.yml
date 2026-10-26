@@ -1,0 +1,94 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    environment:
+      API_HOST: ${API_HOST:?API_HOST is required}
+      API_PORT: ${API_PORT:?API_PORT is required}
+      PUBLIC_WEB_ORIGIN: ${PUBLIC_WEB_ORIGIN:?PUBLIC_WEB_ORIGIN is required}
+      PUBLIC_API_ORIGIN: ${PUBLIC_API_ORIGIN:?PUBLIC_API_ORIGIN is required}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:?CORS_ALLOWED_ORIGINS is required}
+      LOG_LEVEL: ${LOG_LEVEL:?LOG_LEVEL is required}
+      AUTH_SECRET: ${AUTH_SECRET:?AUTH_SECRET is required}
+      AUTH_DEFAULT_USER_ID: ${AUTH_DEFAULT_USER_ID:?AUTH_DEFAULT_USER_ID is required}
+      AUTH_DEFAULT_ACCESS_CODE: ${AUTH_DEFAULT_ACCESS_CODE:?AUTH_DEFAULT_ACCESS_CODE is required}
+      AUTH_TOKEN_TTL_SECONDS: ${AUTH_TOKEN_TTL_SECONDS:?AUTH_TOKEN_TTL_SECONDS is required}
+      RATE_LIMIT_MAX_REQUESTS: ${RATE_LIMIT_MAX_REQUESTS:?RATE_LIMIT_MAX_REQUESTS is required}
+      RATE_LIMIT_WINDOW_MS: ${RATE_LIMIT_WINDOW_MS:?RATE_LIMIT_WINDOW_MS is required}
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+      DATABASE_POOL_MAX: ${DATABASE_POOL_MAX:?DATABASE_POOL_MAX is required}
+      DATABASE_CONNECT_TIMEOUT_MS: ${DATABASE_CONNECT_TIMEOUT_MS:?DATABASE_CONNECT_TIMEOUT_MS is required}
+      S3_ENDPOINT: ${S3_ENDPOINT:?S3_ENDPOINT is required}
+      S3_REGION: ${S3_REGION:?S3_REGION is required}
+      S3_BUCKET: ${S3_BUCKET:?S3_BUCKET is required}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:?S3_ACCESS_KEY_ID is required}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:?S3_SECRET_ACCESS_KEY is required}
+      S3_FORCE_PATH_STYLE: ${S3_FORCE_PATH_STYLE:?S3_FORCE_PATH_STYLE is required}
+      S3_PRESIGNED_URL_TTL_SECONDS: ${S3_PRESIGNED_URL_TTL_SECONDS:?S3_PRESIGNED_URL_TTL_SECONDS is required}
+      S3_OPERATION_TIMEOUT_MS: ${S3_OPERATION_TIMEOUT_MS:?S3_OPERATION_TIMEOUT_MS is required}
+      MAX_UPLOAD_FILE_BYTES: ${MAX_UPLOAD_FILE_BYTES:?MAX_UPLOAD_FILE_BYTES is required}
+      MAX_BATCH_FILES: ${MAX_BATCH_FILES:?MAX_BATCH_FILES is required}
+      MAX_BATCH_TOTAL_BYTES: ${MAX_BATCH_TOTAL_BYTES:?MAX_BATCH_TOTAL_BYTES is required}
+      MAX_ZIP_EXPANSION_RATIO: ${MAX_ZIP_EXPANSION_RATIO:?MAX_ZIP_EXPANSION_RATIO is required}
+      MAX_ZIP_EXTRACTED_BYTES: ${MAX_ZIP_EXTRACTED_BYTES:?MAX_ZIP_EXTRACTED_BYTES is required}
+      MAX_ZIP_ENTRIES: ${MAX_ZIP_ENTRIES:?MAX_ZIP_ENTRIES is required}
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:?VAPID_PUBLIC_KEY is required}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:?VAPID_PRIVATE_KEY is required}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:?VAPID_SUBJECT is required}
+      NOTIFICATION_POLL_INTERVAL_MS: ${NOTIFICATION_POLL_INTERVAL_MS:?NOTIFICATION_POLL_INTERVAL_MS is required}
+      NOTIFICATION_MAX_RETRIES: ${NOTIFICATION_MAX_RETRIES:?NOTIFICATION_MAX_RETRIES is required}
+      DEFAULT_TIMEZONE: ${DEFAULT_TIMEZONE:?DEFAULT_TIMEZONE is required}
+      DEFAULT_REMINDER_TIME: ${DEFAULT_REMINDER_TIME:?DEFAULT_REMINDER_TIME is required}
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:' + process.env.API_PORT + '/api/v1/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        VITE_API_ORIGIN: ${VITE_API_ORIGIN:?VITE_API_ORIGIN is required}
+        VITE_PUBLIC_ORIGIN: ${VITE_PUBLIC_ORIGIN:?VITE_PUBLIC_ORIGIN is required}
+        VITE_VAPID_PUBLIC_KEY: ${VITE_VAPID_PUBLIC_KEY:?VITE_VAPID_PUBLIC_KEY is required}
+        VITE_DEFAULT_ACCESS_CODE: ${VITE_DEFAULT_ACCESS_CODE:?VITE_DEFAULT_ACCESS_CODE is required}
+        VITE_DEFAULT_TIMEZONE: ${VITE_DEFAULT_TIMEZONE:?VITE_DEFAULT_TIMEZONE is required}
+        VITE_DEFAULT_REMINDER_TIME: ${VITE_DEFAULT_REMINDER_TIME:?VITE_DEFAULT_REMINDER_TIME is required}
+        VITE_MAX_UPLOAD_FILE_BYTES: ${VITE_MAX_UPLOAD_FILE_BYTES:?VITE_MAX_UPLOAD_FILE_BYTES is required}
+        VITE_MAX_BATCH_FILES: ${VITE_MAX_BATCH_FILES:?VITE_MAX_BATCH_FILES is required}
+        VITE_MAX_BATCH_TOTAL_BYTES: ${VITE_MAX_BATCH_TOTAL_BYTES:?VITE_MAX_BATCH_TOTAL_BYTES is required}
+        VITE_MAX_ZIP_EXPANSION_RATIO: ${VITE_MAX_ZIP_EXPANSION_RATIO:?VITE_MAX_ZIP_EXPANSION_RATIO is required}
+        VITE_MAX_ZIP_EXTRACTED_BYTES: ${VITE_MAX_ZIP_EXTRACTED_BYTES:?VITE_MAX_ZIP_EXTRACTED_BYTES is required}
+        VITE_MAX_ZIP_ENTRIES: ${VITE_MAX_ZIP_ENTRIES:?VITE_MAX_ZIP_ENTRIES is required}
+        VITE_SYNC_INTERVAL_MS: ${VITE_SYNC_INTERVAL_MS:?VITE_SYNC_INTERVAL_MS is required}
+        VITE_SYNC_MAX_RETRIES: ${VITE_SYNC_MAX_RETRIES:?VITE_SYNC_MAX_RETRIES is required}
+        VITE_SYNC_RETRY_BASE_MS: ${VITE_SYNC_RETRY_BASE_MS:?VITE_SYNC_RETRY_BASE_MS is required}
+    restart: unless-stopped
+    environment:
+      WEB_PORT: ${WEB_PORT:?WEB_PORT is required}
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:' + process.env.WEB_PORT + '/').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 5s

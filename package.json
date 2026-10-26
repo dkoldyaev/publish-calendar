@@ -1,0 +1,33 @@
+{
+  "name": "publish-calendar",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Offline-First Photo Publishing Scheduler PWA & API",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces",
+    "typecheck": "npm run typecheck --workspaces",
+    "lint": "eslint \"packages/*/src/**/*.{ts,tsx}\" \"apps/*/src/**/*.{ts,tsx}\"",
+    "test": "vitest run",
+    "test:shared": "vitest run packages/shared/src/shared.test.ts",
+    "test:api": "vitest run apps/api/src",
+    "test:web": "vitest run apps/web/src",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.19.0",
+    "@types/node": "^22.10.0",
+    "eslint": "^9.19.0",
+    "fake-indexeddb": "^6.0.0",
+    "jsdom": "^26.0.0",
+    "typescript": "^5.7.3",
+    "typescript-eslint": "^8.22.0",
+    "vitest": "^3.0.4"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
