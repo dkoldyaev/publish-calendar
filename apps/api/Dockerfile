@@ -29,6 +29,9 @@ COPY --from=builder /app/apps/api/package.json ./apps/api/package.json
 COPY --from=builder /app/apps/api/dist ./apps/api/dist
 COPY --from=builder /app/apps/api/src/db/migrations ./apps/api/dist/db/migrations
 
+RUN mkdir -p /var/lib/publish-calendar/storage \
+ && chown -R node:node /var/lib/publish-calendar
+
 USER node
 
 HEALTHCHECK --interval=15s --timeout=5s --start-period=10s --retries=3 \

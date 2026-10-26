@@ -44,7 +44,7 @@ services:
       DEFAULT_TIMEZONE: ${DEFAULT_TIMEZONE:?DEFAULT_TIMEZONE is required}
       DEFAULT_REMINDER_TIME: ${DEFAULT_REMINDER_TIME:?DEFAULT_REMINDER_TIME is required}
     volumes:
-      - photo_storage:/var/lib/publish-calendar/storage
+      - local_photo_storage:/var/lib/publish-calendar/storage
     healthcheck:
       test:
         [
@@ -102,4 +102,4 @@ services:
       - default
 
 volumes:
-  photo_storage:
+  local_photo_storage:
